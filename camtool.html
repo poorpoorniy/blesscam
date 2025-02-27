@@ -1,0 +1,839 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Enhanced Webcam Typography Converter</title>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/p5.js/1.6.0/p5.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/@jaames/iro@5"></script>
+  <link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Permanent+Marker&family=Press+Start+2P&family=Rubik+Mono+One&family=VT323&display=swap" rel="stylesheet">
+  <style>
+    body, html {
+      margin: 0;
+      padding: 0;
+      width: 100%;
+      height: 100%;
+      overflow: hidden;
+      font-family: 'Arial', sans-serif;
+      background-color: #000;
+    }
+    
+    #canvas-container {
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+    }
+    
+    #controls {
+      position: absolute;
+      bottom: 20px;
+      right: 20px;
+      background-color: rgba(0, 0, 0, 0.7);
+      color: white;
+      padding: 15px;
+      border-radius: 10px;
+      z-index: 100;
+      transition: opacity 0.3s ease;
+      max-height: 80vh;
+      overflow-y: auto;
+      width: 350px;
+    }
+    
+    .hidden {
+      opacity: 0;
+      pointer-events: none;
+    }
+    
+    .control-group {
+      margin-bottom: 15px;
+    }
+    
+    label {
+      display: block;
+      margin-bottom: 5px;
+      font-weight: bold;
+    }
+    
+    select, input {
+      width: 100%;
+      padding: 8px;
+      border-radius: 5px;
+      border: none;
+      background-color: #333;
+      color: white;
+    }
+    
+    button {
+      background-color: #4CAF50;
+      border: none;
+      color: white;
+      padding: 10px 15px;
+      text-align: center;
+      text-decoration: none;
+      display: inline-block;
+      font-size: 16px;
+      margin: 4px 2px;
+      cursor: pointer;
+      border-radius: 5px;
+    }
+    
+    button.danger {
+      background-color: #f44336;
+    }
+    
+    button.secondary {
+      background-color: #2196F3;
+    }
+    
+    #toggle-ui {
+      position: absolute;
+      top: 20px;
+      right: 20px;
+      z-index: 101;
+      background-color: rgba(0, 0, 0, 0.5);
+    }
+    
+    .color-config {
+      background-color: rgba(255, 255, 255, 0.1);
+      border-radius: 5px;
+      padding: 10px;
+      margin-bottom: 12px;
+      position: relative;
+    }
+    
+    .color-preview {
+      display: inline-block;
+      width: 20px;
+      height: 20px;
+      border-radius: 50%;
+      margin-right: 10px;
+      border: 1px solid white;
+      vertical-align: middle;
+    }
+
+    .color-picker-container {
+      margin: 10px 0;
+      display: flex;
+      justify-content: center;
+    }
+    
+    .font-preview {
+      display: inline-block;
+      width: 30px;
+      height: 30px;
+      line-height: 30px;
+      text-align: center;
+      background-color: #222;
+      margin-right: 5px;
+      border-radius: 3px;
+    }
+    
+    .config-row {
+      display: flex;
+      align-items: center;
+      margin-bottom: 8px;
+    }
+    
+    .config-row label {
+      width: 90px;
+      margin-bottom: 0;
+    }
+    
+    .config-row input, .config-row select {
+      flex: 1;
+    }
+    
+    .action-buttons {
+      display: flex;
+      justify-content: space-between;
+      margin-top: 15px;
+    }
+    
+    .remove-level {
+      position: absolute;
+      top: 5px;
+      right: 5px;
+      background-color: #f44336;
+      color: white;
+      border: none;
+      border-radius: 50%;
+      width: 20px;
+      height: 20px;
+      font-size: 12px;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+    
+    #recording-indicator {
+      position: absolute;
+      top: 20px;
+      left: 20px;
+      color: red;
+      font-weight: bold;
+      background-color: rgba(0, 0, 0, 0.7);
+      padding: 10px;
+      border-radius: 5px;
+      display: none;
+      z-index: 101;
+    }
+    
+    .custom-font-upload {
+      margin-top: 10px;
+    }
+    
+    #custom-fonts-list {
+      margin-top: 10px;
+      max-height: 100px;
+      overflow-y: auto;
+      background-color: rgba(255, 255, 255, 0.1);
+      border-radius: 5px;
+      padding: 5px;
+    }
+    
+    .custom-font-item {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 3px;
+      border-bottom: 1px solid rgba(255, 255, 255, 0.2);
+    }
+    
+    .custom-font-item:last-child {
+      border-bottom: none;
+    }
+  </style>
+</head>
+<body>
+  <div id="canvas-container"></div>
+  
+  <button id="toggle-ui">Toggle UI</button>
+  <div id="recording-indicator">● REC</div>
+  
+  <div id="controls">
+    <div class="control-group">
+      <label>Resolution:</label>
+      <select id="resolution">
+        <option value="20">Very Low</option>
+        <option value="15">Low</option>
+        <option value="10" selected>Medium</option>
+        <option value="5">High</option>
+      </select>
+    </div>
+    
+    <div class="control-group">
+      <label>Letter Spacing:</label>
+      <input type="range" id="letter-spacing" min="0" max="50" value="0">
+      <span id="letter-spacing-value">0px</span>
+    </div>
+    
+    <div class="control-group">
+      <label>Threshold Type:</label>
+      <select id="threshold-type">
+        <option value="brightness" selected>Brightness</option>
+        <option value="saturation">Saturation</option>
+        <option value="hue">Hue</option>
+      </select>
+    </div>
+    
+    <div class="control-group">
+      <label>Custom Fonts:</label>
+      <div class="custom-font-upload">
+        <input type="file" id="font-upload" accept=".ttf,.otf,.woff,.woff2" multiple>
+        <button id="upload-font" class="secondary">Upload Fonts</button>
+      </div>
+      <div id="custom-fonts-list">
+        <!-- Custom fonts will appear here -->
+      </div>
+    </div>
+    
+    <div class="control-group">
+      <label>Color Levels:</label>
+      <div id="color-palette">
+        <!-- Color configurations will be generated here -->
+      </div>
+      <button id="add-level">Add New Color Level</button>
+    </div>
+    
+    <div class="control-group action-buttons">
+      <button id="save-image">Save Image</button>
+      <button id="toggle-recording" class="secondary">Start Recording</button>
+    </div>
+  </div>
+
+  <script>
+    let sketch = function(p) {
+      let cam;
+      let cellSize = 10;
+      let letterSpacing = 0;
+      let thresholdType = "brightness";
+      let uiVisible = true;
+      let mediaRecorder;
+      let recordedChunks = [];
+      let isRecording = false;
+      
+      // Custom fonts
+      let customFonts = [];
+      
+      // Color configurations
+      let colorLevels = [
+        {
+          color: "#FFFFFF", // White
+          font: "'Bebas Neue', sans-serif",
+          chars: ["*", "O", "0", "8"],
+          threshold: 0.8,
+          fontSize: 14
+        },
+        {
+          color: "#FF5252", // Red
+          font: "'Permanent Marker', cursive",
+          chars: ["R", "A", "D"],
+          threshold: 0.65,
+          fontSize: 14
+        },
+        {
+          color: "#FFD740", // Yellow
+          font: "'Press Start 2P', cursive",
+          chars: ["!", "+", "=", "#"],
+          threshold: 0.5,
+          fontSize: 14
+        },
+        {
+          color: "#40C4FF", // Blue
+          font: "'VT323', monospace",
+          chars: ["~", ".", ":", "^"],
+          threshold: 0.35,
+          fontSize: 14
+        },
+        {
+          color: "#69F0AE", // Green
+          font: "'Rubik Mono One', sans-serif",
+          chars: ["/", "\\", "|", "_"],
+          threshold: 0.2,
+          fontSize: 14
+        },
+        {
+          color: "#9C27B0", // Purple
+          font: "monospace",
+          chars: [".", ",", "'", "`"],
+          threshold: 0,
+          fontSize: 14
+        }
+      ];
+      
+      p.setup = function() {
+        p.createCanvas(p.windowWidth, p.windowHeight);
+        cam = p.createCapture(p.VIDEO);
+        cam.size(p.windowWidth, p.windowHeight);
+        cam.hide();
+        
+        p.colorMode(p.HSB, 1);
+        p.textAlign(p.CENTER, p.CENTER);
+        
+        setupUI();
+        setupMediaRecorder();
+      };
+      
+      p.draw = function() {
+        p.background(0);
+        
+        cam.loadPixels();
+        
+        for (let y = 0; y < p.height; y += cellSize + letterSpacing) {
+          for (let x = 0; x < p.width; x += cellSize + letterSpacing) {
+            // Get pixel value from webcam
+            const pixelIndex = (y * cam.width + x) * 4;
+            if (pixelIndex >= cam.pixels.length) continue;
+            
+            const r = cam.pixels[pixelIndex + 0] / 255;
+            const g = cam.pixels[pixelIndex + 1] / 255;
+            const b = cam.pixels[pixelIndex + 2] / 255;
+            
+            let value;
+            if (thresholdType === "brightness") {
+              value = p.max(r, g, b); // Simple brightness
+            } else if (thresholdType === "saturation") {
+              const max = p.max(r, g, b);
+              const min = p.min(r, g, b);
+              value = max === 0 ? 0 : (max - min) / max;
+            } else if (thresholdType === "hue") {
+              const max = p.max(r, g, b);
+              const min = p.min(r, g, b);
+              if (max === min) {
+                value = 0;
+              } else {
+                if (max === r) {
+                  value = ((g - b) / (max - min) + 6) % 6 / 6;
+                } else if (max === g) {
+                  value = ((b - r) / (max - min) + 2) / 6;
+                } else {
+                  value = ((r - g) / (max - min) + 4) / 6;
+                }
+              }
+            }
+            
+            // Find the appropriate color level based on the value
+            let level = colorLevels[colorLevels.length - 1];
+            for (let i = 0; i < colorLevels.length; i++) {
+              if (value >= colorLevels[i].threshold) {
+                level = colorLevels[i];
+                break;
+              }
+            }
+            
+            // Draw the character
+            p.fill(level.color);
+            p.textFont(level.font);
+            p.textSize(level.fontSize);
+            
+            // Select a random character from the level's character set
+            if (level.chars.length > 0) {
+              const char = level.chars[Math.floor(p.random(level.chars.length))];
+              p.text(char, x + cellSize/2, y + cellSize/2);
+            }
+          }
+        }
+      };
+      
+      p.windowResized = function() {
+        p.resizeCanvas(p.windowWidth, p.windowHeight);
+        cam.size(p.windowWidth, p.windowHeight);
+      };
+      
+      function setupUI() {
+        // Resolution selector
+        document.getElementById('resolution').addEventListener('change', function() {
+          cellSize = parseInt(this.value);
+        });
+        
+        // Letter spacing slider
+        const letterSpacingSlider = document.getElementById('letter-spacing');
+        const letterSpacingValue = document.getElementById('letter-spacing-value');
+        
+        letterSpacingSlider.addEventListener('input', function() {
+          letterSpacing = parseInt(this.value);
+          letterSpacingValue.textContent = letterSpacing + 'px';
+        });
+        
+        // Threshold type selector
+        document.getElementById('threshold-type').addEventListener('change', function() {
+          thresholdType = this.value;
+        });
+        
+        // Toggle UI button
+        document.getElementById('toggle-ui').addEventListener('click', function() {
+          uiVisible = !uiVisible;
+          document.getElementById('controls').classList.toggle('hidden', !uiVisible);
+        });
+        
+        // Save Image button
+        document.getElementById('save-image').addEventListener('click', function() {
+          p.saveCanvas('typography-webcam', 'png');
+        });
+        
+        // Add new color level button
+        document.getElementById('add-level').addEventListener('click', function() {
+          addNewColorLevel();
+        });
+        
+        // Toggle recording button
+        document.getElementById('toggle-recording').addEventListener('click', function() {
+          if (isRecording) {
+            stopRecording();
+            this.textContent = 'Start Recording';
+          } else {
+            startRecording();
+            this.textContent = 'Stop Recording';
+          }
+        });
+        
+        // Font upload handling
+        document.getElementById('upload-font').addEventListener('click', function() {
+          const fileInput = document.getElementById('font-upload');
+          const files = fileInput.files;
+          
+          if (files.length === 0) {
+            alert('Please select at least one font file.');
+            return;
+          }
+          
+          for (let i = 0; i < files.length; i++) {
+            uploadFont(files[i]);
+          }
+          
+          fileInput.value = '';
+        });
+        
+        // Generate color configuration UI
+        updateColorPalette();
+      }
+      
+      function updateColorPalette() {
+        const colorPalette = document.getElementById('color-palette');
+        colorPalette.innerHTML = '';
+        
+        colorLevels.forEach((level, index) => {
+          const colorConfig = document.createElement('div');
+          colorConfig.className = 'color-config';
+          colorConfig.dataset.index = index;
+          
+          // Add title with color preview
+          const titleDiv = document.createElement('div');
+          titleDiv.className = 'config-title';
+          
+          const colorPreview = document.createElement('span');
+          colorPreview.className = 'color-preview';
+          colorPreview.style.backgroundColor = level.color;
+          
+          const title = document.createElement('span');
+          title.textContent = `Level ${index + 1} (Threshold: ${(level.threshold * 100).toFixed(0)}%)`;
+          
+          titleDiv.appendChild(colorPreview);
+          titleDiv.appendChild(title);
+          
+          // Add remove button if there's more than one level
+          if (colorLevels.length > 1) {
+            const removeBtn = document.createElement('button');
+            removeBtn.className = 'remove-level';
+            removeBtn.innerHTML = '&times;';
+            removeBtn.addEventListener('click', function() {
+              removeColorLevel(index);
+            });
+            colorConfig.appendChild(removeBtn);
+          }
+          
+          // Add color picker
+          const pickerContainer = document.createElement('div');
+          pickerContainer.className = 'color-picker-container';
+          colorConfig.appendChild(pickerContainer);
+          
+          // Create font size adjustment
+          const fontSizeRow = document.createElement('div');
+          fontSizeRow.className = 'config-row';
+          
+          const fontSizeLabel = document.createElement('label');
+          fontSizeLabel.textContent = 'Font Size:';
+          
+          const fontSizeInput = document.createElement('input');
+          fontSizeInput.type = 'range';
+          fontSizeInput.min = '8';
+          fontSizeInput.max = '30';
+          fontSizeInput.value = level.fontSize;
+          
+          fontSizeInput.addEventListener('input', function() {
+            colorLevels[index].fontSize = parseInt(this.value);
+          });
+          
+          fontSizeRow.appendChild(fontSizeLabel);
+          fontSizeRow.appendChild(fontSizeInput);
+          
+          // Create font selection
+          const fontRow = document.createElement('div');
+          fontRow.className = 'config-row';
+          
+          const fontLabel = document.createElement('label');
+          fontLabel.textContent = 'Font:';
+          
+          const fontSelect = document.createElement('select');
+          
+          const defaultFonts = [
+            { value: "'Bebas Neue', sans-serif", label: "Bebas Neue" },
+            { value: "'Permanent Marker', cursive", label: "Permanent Marker" },
+            { value: "'Press Start 2P', cursive", label: "Press Start 2P" },
+            { value: "'VT323', monospace", label: "VT323" },
+            { value: "'Rubik Mono One', sans-serif", label: "Rubik Mono One" },
+            { value: "monospace", label: "Monospace" }
+          ];
+          
+          // Add default fonts
+          defaultFonts.forEach(font => {
+            const option = document.createElement('option');
+            option.value = font.value;
+            option.textContent = font.label;
+            if (font.value === level.font) {
+              option.selected = true;
+            }
+            fontSelect.appendChild(option);
+          });
+          
+          // Add custom fonts
+          if (customFonts.length > 0) {
+            const optgroup = document.createElement('optgroup');
+            optgroup.label = 'Custom Fonts';
+            
+            customFonts.forEach(font => {
+              const option = document.createElement('option');
+              option.value = `'${font.name}', sans-serif`;
+              option.textContent = font.name;
+              if (option.value === level.font) {
+                option.selected = true;
+              }
+              optgroup.appendChild(option);
+            });
+            
+            fontSelect.appendChild(optgroup);
+          }
+          
+          fontSelect.addEventListener('change', function() {
+            colorLevels[index].font = this.value;
+          });
+          
+          fontRow.appendChild(fontLabel);
+          fontRow.appendChild(fontSelect);
+          
+          // Create characters input
+          const charsRow = document.createElement('div');
+          charsRow.className = 'config-row';
+          
+          const charsLabel = document.createElement('label');
+          charsLabel.textContent = 'Characters:';
+          
+          const charsInput = document.createElement('input');
+          charsInput.type = 'text';
+          charsInput.placeholder = 'Characters';
+          charsInput.value = level.chars.join('');
+          
+          charsInput.addEventListener('input', function() {
+            colorLevels[index].chars = this.value.split('');
+          });
+          
+          charsRow.appendChild(charsLabel);
+          charsRow.appendChild(charsInput);
+          
+          // Create threshold adjustment
+          const thresholdRow = document.createElement('div');
+          thresholdRow.className = 'config-row';
+          
+          const thresholdLabel = document.createElement('label');
+          thresholdLabel.textContent = 'Threshold:';
+          
+          const thresholdInput = document.createElement('input');
+          thresholdInput.type = 'range';
+          thresholdInput.min = '0';
+          thresholdInput.max = '100';
+          thresholdInput.value = level.threshold * 100;
+          
+          thresholdInput.addEventListener('input', function() {
+            colorLevels[index].threshold = parseInt(this.value) / 100;
+            
+            // Update the title to reflect the new threshold
+            title.textContent = `Level ${index + 1} (Threshold: ${parseInt(this.value)}%)`;
+            
+            // Ensure thresholds remain sorted
+            sortColorLevelsByThreshold();
+            updateColorPalette();
+          });
+          
+          thresholdRow.appendChild(thresholdLabel);
+          thresholdRow.appendChild(thresholdInput);
+          
+          colorConfig.appendChild(titleDiv);
+          colorConfig.appendChild(fontSizeRow);
+          colorConfig.appendChild(fontRow);
+          colorConfig.appendChild(charsRow);
+          colorConfig.appendChild(thresholdRow);
+          
+          colorPalette.appendChild(colorConfig);
+          
+          // Initialize the color picker
+          setTimeout(() => {
+            const colorPicker = new iro.ColorPicker(pickerContainer, {
+              width: 200,
+              color: level.color
+            });
+            
+            colorPicker.on('color:change', color => {
+              level.color = color.hexString;
+              colorPreview.style.backgroundColor = color.hexString;
+            });
+          }, 0);
+        });
+      }
+      
+      function addNewColorLevel() {
+        // Find the lowest threshold to place the new level at the bottom
+        let lowestThreshold = 0;
+        if (colorLevels.length > 0) {
+          lowestThreshold = Math.min(...colorLevels.map(level => level.threshold));
+          lowestThreshold = Math.max(0, lowestThreshold - 0.1); // Place it slightly below
+        }
+        
+        const newLevel = {
+          color: getRandomColor(),
+          font: "'Bebas Neue', sans-serif",
+          chars: ["#", "@", "$"],
+          threshold: lowestThreshold,
+          fontSize: 14
+        };
+        
+        colorLevels.push(newLevel);
+        sortColorLevelsByThreshold();
+        updateColorPalette();
+      }
+      
+      function removeColorLevel(index) {
+        if (colorLevels.length <= 1) return; // Don't remove the last level
+        
+        colorLevels.splice(index, 1);
+        updateColorPalette();
+      }
+      
+      function sortColorLevelsByThreshold() {
+        colorLevels.sort((a, b) => b.threshold - a.threshold);
+      }
+      
+      function getRandomColor() {
+        const letters = '0123456789ABCDEF';
+        let color = '#';
+        for (let i = 0; i < 6; i++) {
+          color += letters[Math.floor(Math.random() * 16)];
+        }
+        return color;
+      }
+      
+      function setupMediaRecorder() {
+        // Check if browser supports canvas capturing
+        if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+          console.error('Your browser does not support recording from canvas');
+          return;
+        }
+        
+        // We'll capture the canvas stream
+        const canvas = document.querySelector('canvas');
+        const stream = canvas.captureStream(30); // 30 FPS
+        
+        mediaRecorder = new MediaRecorder(stream, {
+          mimeType: 'video/webm;codecs=vp9',
+          videoBitsPerSecond: 5000000 // High quality (5Mbps)
+        });
+        
+        mediaRecorder.ondataavailable = function(event) {
+          if (event.data.size > 0) {
+            recordedChunks.push(event.data);
+          }
+        };
+        
+        mediaRecorder.onstop = function() {
+          const blob = new Blob(recordedChunks, { type: 'video/webm' });
+          recordedChunks = [];
+          const url = URL.createObjectURL(blob);
+          
+          // Create download link
+          const a = document.createElement('a');
+          a.style.display = 'none';
+          a.href = url;
+          a.download = 'typography-recording.webm';
+          document.body.appendChild(a);
+          a.click();
+          
+          // Clean up
+          window.URL.revokeObjectURL(url);
+          document.body.removeChild(a);
+        };
+      }
+      
+      function startRecording() {
+        if (!mediaRecorder) return;
+        
+        recordedChunks = [];
+        mediaRecorder.start();
+        isRecording = true;
+        document.getElementById('recording-indicator').style.display = 'block';
+      }
+      
+      function stopRecording() {
+        if (!mediaRecorder || mediaRecorder.state === 'inactive') return;
+        
+        mediaRecorder.stop();
+        isRecording = false;
+        document.getElementById('recording-indicator').style.display = 'none';
+      }
+      
+      function uploadFont(file) {
+        const fontName = file.name.split('.')[0];
+        const fontUrl = URL.createObjectURL(file);
+        
+        // Create a new style element for the font
+        const fontFace = new FontFace(fontName, `url(${fontUrl})`);
+        
+        fontFace.load().then(function(loaded_face) {
+          // Add the font to the document
+          document.fonts.add(loaded_face);
+          
+          // Store the font information
+          customFonts.push({
+            name: fontName,
+            url: fontUrl
+          });
+          
+          // Update the font list UI
+          updateCustomFontsList();
+          
+          // Update the color palette to include the new font
+          updateColorPalette();
+          
+          console.log(`Font ${fontName} loaded successfully`);
+        }).catch(function(error) {
+          console.error('Font loading failed:', error);
+          alert(`Failed to load font ${fontName}`);
+        });
+      }
+      
+      function updateCustomFontsList() {
+        const fontsList = document.getElementById('custom-fonts-list');
+        fontsList.innerHTML = '';
+        
+        if (customFonts.length === 0) {
+          fontsList.innerHTML = '<div class="custom-font-item">No custom fonts uploaded</div>';
+          return;
+        }
+        
+        customFonts.forEach((font, index) => {
+          const fontItem = document.createElement('div');
+          fontItem.className = 'custom-font-item';
+          
+          const fontName = document.createElement('span');
+          fontName.textContent = font.name;
+          fontName.style.fontFamily = font.name;
+          
+          const removeButton = document.createElement('button');
+          removeButton.innerHTML = '&times;';
+          removeButton.className = 'remove-level';
+          removeButton.addEventListener('click', function() {
+            removeCustomFont(index);
+          });
+          
+          fontItem.appendChild(fontName);
+          fontItem.appendChild(removeButton);
+          fontsList.appendChild(fontItem);
+        });
+      }
+      
+      function removeCustomFont(index) {
+        // Remove the font
+        const font = customFonts[index];
+        
+        // Remove from array
+        customFonts.splice(index, 1);
+        
+        // Update any color levels using this font
+        const fontValue = `'${font.name}', sans-serif`;
+        colorLevels.forEach(level => {
+          if (level.font === fontValue) {
+            level.font = "'Bebas Neue', sans-serif"; // Reset to default
+          }
+        });
+        
+        // Update UI
+        updateCustomFontsList();
+        updateColorPalette();
+      }
+    };
+    
+    new p5(sketch);
+  </script>
+</body>
+</html>
